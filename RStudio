@@ -7,6 +7,7 @@ library(stargazer)
 library(car)
 
 df <- read_csv("/Users/ruslansmirnov/Downloads/final-accounting.csv")
+#data is available on Google Sheets: https://docs.google.com/spreadsheets/d/17H13UtoSiW4K1tonYGPjGABBDTpBiM_mAfs95Mq1b5c/edit?gid=831989199#gid=831989199
 
 df_clean <- df %>%
   mutate(
