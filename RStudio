@@ -1,0 +1,66 @@
+if (!require("tidyverse")) install.packages("tidyverse")
+if (!require("stargazer")) install.packages("stargazer")
+if (!require("car")) install.packages("car")
+
+library(tidyverse)
+library(stargazer)
+library(car)
+
+df <- read_csv("/Users/ruslansmirnov/Downloads/final-accounting.csv")
+
+df_clean <- df %>%
+  mutate(
+    sanction_dummy = as.factor(sanction_dummy),
+    tech_dummy = as.factor(tech_dummy),
+    country_dummy = as.factor(country_dummy),
+    underpricing_pct = underpricing * 100,
+    
+    sanction_numeric = as.numeric(as.character(sanction_dummy)),
+    sanction_oil = sanction_numeric * oil_price,
+    log_age = log(age),
+    
+    log_size = log_deal_size 
+  )
+
+# --- MODELS ---
+
+# 1. Base (Sanctions Only)
+m1 <- lm(underpricing_pct ~ sanction_dummy, data = df_clean)
+
+# 2. Firm Characteristics (Tech + Age)
+m2 <- lm(underpricing_pct ~ sanction_dummy + tech_dummy + log_age, data = df_clean)
+
+# 3. Macro Controls (Oil + Rates)
+m3 <- lm(underpricing_pct ~ sanction_dummy + tech_dummy + oil_price + key_rate, data = df_clean)
+
+# 4. Interaction Hypothesis (Sanctions change Oil dependency)
+m4 <- lm(underpricing_pct ~ tech_dummy + sanction_dummy * oil_price, data = df_clean)
+
+# 5. Full Model (+ Deal Size Control)
+m5 <- lm(underpricing_pct ~ tech_dummy + log_age + sanction_dummy * oil_price + log_size, data = df_clean)
+
+
+# --- FINAL TABLE ---
+stargazer(m1, m2, m3, m4, m5, type = "text", 
+          title = "Regression Results: Drivers of IPO Underpricing",
+          dep.var.labels = "Underpricing (%)",
+          
+          covariate.labels = c("Sanctions",       # sanction_dummy
+                               "Tech Sector",     # tech_dummy
+                               "Log(Age)",        # log_age
+                               "Oil Price",       # oil_price
+                               "Key Rate",        # key_rate
+                               "Log(Deal Size)",  # log_size
+                               "Sanctions x Oil"  # Interaction
+          ),
+          
+          omit.stat = c("f", "ser"), 
+          intercept.bottom = TRUE,
+          digits = 2)
+
+tryCatch({
+  print("VIF for Model 5 (Check for multicollinearity):")
+  print(vif(m5, type = 'predictor'))
+}, error = function(e) {
+  message("VIF Note: Standard VIF skipped due to high correlation in interaction terms.")
+})
