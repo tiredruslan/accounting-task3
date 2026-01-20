@@ -1,0 +1,105 @@
+# 1. Load Libraries
+if (!require("tidyverse")) install.packages("tidyverse")
+if (!require("car")) install.packages("car")
+if (!require("stargazer")) install.packages("stargazer")
+
+library(tidyverse)
+library(car)
+library(stargazer)
+
+# 2. Load Dataset
+raw_data <- read.csv('/Users/ruslansmirnov/Downloads/Новая таблица - Results.csv', 
+                     stringsAsFactors = FALSE, check.names = TRUE)
+
+# 3. Rename and Clean Columns
+names(raw_data) <- make.names(names(raw_data))
+
+df_final <- raw_data %>%
+  select(
+    Country = contains("fic"),
+    Sector = contains("gsector"),
+    Assets = contains(".at."),
+    Equity = contains(".ceq."),
+    Income = contains(".ib."),
+    Revenue = contains(".revt."),
+    PPE = contains(".ppent.")
+  ) %>%
+  # FIXED: Added PPE to the cleaning list
+  mutate(across(c(Assets, Equity, Income, Revenue, PPE), 
+                ~ as.numeric(gsub("[^0-9.-]", "", as.character(.))))) %>%
+  drop_na() %>%
+  # Added Revenue > 0 to avoid Infinity in Margin/Turnover
+  filter(Equity > 0, Assets > 0, Revenue > 0) %>%
+  mutate(
+    ROE = Income / Equity,
+    Leverage = Assets / Equity,
+    Size = log(Assets),
+    Margin = Income / Revenue,
+    Cap_Intensity = PPE / Assets,
+    Turnover = Revenue / Assets,
+    Country = as.factor(Country),
+    Sector = as.factor(Sector)
+  ) %>%
+  # FIXED: Added pipe %>% and handle potential NAs in quantiles
+  filter(Margin > quantile(Margin, 0.01, na.rm=TRUE) & Margin < quantile(Margin, 0.99, na.rm=TRUE)) %>%
+  filter(ROE > quantile(ROE, 0.01, na.rm=TRUE) & ROE < quantile(ROE, 0.99, na.rm=TRUE))
+
+# 4. Diagnostics
+print(paste("Final observations:", nrow(df_final)))
+# View(df_final) # Uncomment if you want to see the table
+
+# 5. Regression Models
+model1 <- lm(ROE ~ Country, data = df_final)
+model2 <- lm(ROE ~ Country + Sector + Size, data = df_final)
+model3 <- lm(ROE ~ Country + Sector + Size + Leverage + Turnover, data = df_final)
+model4 <- lm(ROE ~ Country + Sector + Size + Leverage + Turnover + Margin + Cap_Intensity, 
+             data = df_final)
+
+# 6. Results and Significance Tests
+
+stargazer(model1, model2, model3, model4,
+          type = "text", 
+          title = "Regression Results: Systematic Variation of ROE Across Countries",
+          dep.var.labels = "Return on Equity (ROE)",
+          covariate.labels = c("Firm Size (log)", "Leverage", "Asset Turnover", "Profit Margin", "Capital Intensity"),
+          omit = c("Country", "Sector"), # Hides the individual dummy coefficients
+          omit.stat = c("f", "ser"),     # Optional: hides F-stat and Residual Std. Error for a cleaner look
+          add.lines = list(c("Country Fixed Effects", "Yes", "Yes", "Yes", "Yes"),
+                           c("Sector Fixed Effects", "No", "Yes", "Yes", "Yes")),
+          notes = "Standard errors in parentheses. Model 4 includes full DuPont components.",
+          star.cutoffs = c(0.05, 0.01, 0.001))
+
+stargazer(model1, model4, 
+          type = "text", 
+          title = "Detailed Country Impact on ROE",
+          # keep = "Country" tells stargazer to show ONLY the 5 countries
+          keep = "Country", 
+          dep.var.labels = "Return on Equity (ROE)",
+          add.lines = list(c("Financial Controls", "No", "Yes"),
+                           c("Sector Fixed Effects", "No", "Yes")),
+          notes = "Note: One country is hidden as the baseline for comparison.",
+          star.cutoffs = c(0.05, 0.01, 0.001))
+
+
+# ANOVA test for the most complex model
+print("--- ANOVA: Testing Country Significance in Model 4 ---")
+print(Anova(model4, type = "II"))
+
+# 7. Visualization
+top_countries_list <- df_final %>% 
+  count(Country) %>% 
+  top_n(10, n) %>% 
+  pull(Country)
+
+ggplot(df_final %>% filter(Country %in% top_countries_list), 
+       aes(x = reorder(Country, ROE, median), y = ROE, fill = Country)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) + 
+  coord_flip(ylim = c(-0.1, 0.3)) + 
+  theme_minimal() +
+  labs(
+    title = "Systematic Variation of ROE by Country",
+    subtitle = "Analysis of top 10 countries in the sample",
+    x = "Country Code",
+    y = "Return on Equity (ROE)"
+  ) +
+  theme(legend.position = "none")
