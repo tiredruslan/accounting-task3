@@ -86,20 +86,16 @@ print("--- ANOVA: Testing Country Significance in Model 4 ---")
 print(Anova(model4, type = "II"))
 
 # 7. Visualization
-top_countries_list <- df_final %>% 
-  count(Country) %>% 
-  top_n(10, n) %>% 
-  pull(Country)
 
-ggplot(df_final %>% filter(Country %in% top_countries_list), 
-       aes(x = reorder(Country, ROE, median), y = ROE, fill = Country)) +
+ggplot(df_final, 
+       aes(x = reorder(Country, ROE, median), y = ROE, fill = Country)) + 
   geom_boxplot(outlier.shape = NA, alpha = 0.7) + 
   coord_flip(ylim = c(-0.1, 0.3)) + 
-  theme_minimal() +
+  theme_minimal() + 
   labs(
     title = "Systematic Variation of ROE by Country",
-    subtitle = "Analysis of top 10 countries in the sample",
+    subtitle = "Analysis of all countries in the sample", 
     x = "Country Code",
     y = "Return on Equity (ROE)"
-  ) +
+  ) + 
   theme(legend.position = "none")
