@@ -1,3 +1,10 @@
+# ==============================================================================
+# PROJECT METADATA
+# ==============================================================================
+# Data Source: Worldscope - Fundamentals Annual
+# Raw data:    https://docs.google.com/spreadsheets/d/15aiHK6ctJdRPhf0NuW3pzQUEkRSxFRbgNtVE_3URcbA/edit?gid=1099793521#gid=1099793521
+# Clean data:  https://docs.google.com/spreadsheets/d/1NZ63R4YSf6_f2EEIrgCiJepIDCCipQ5wExsLoVZuu5U/edit?gid=1690865623#gid=1690865623
+
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(dplyr, fixest, ggplot2, modelsummary, psych, tidyr, gridExtra) 
 
